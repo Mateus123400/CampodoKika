@@ -334,7 +334,8 @@ def handle_message(data):
     }, broadcast=True)
 
 if __name__ == '__main__':
-    if os.environ.get('RENDER'):
-        app.run()
+    port = int(os.environ.get('PORT', 5000))
+    if os.environ.get('RAILWAY_STATIC_URL'):
+        app.run(host='0.0.0.0', port=port)
     else:
-        socketio.run(app, debug=False, host='0.0.0.0')
+        socketio.run(app, debug=False, host='0.0.0.0', port=port)
