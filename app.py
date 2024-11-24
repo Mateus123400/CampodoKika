@@ -334,4 +334,7 @@ def handle_message(data):
     }, broadcast=True)
 
 if __name__ == '__main__':
-    socketio.run(app, debug=False, host='0.0.0.0')
+    if os.environ.get('RENDER'):
+        app.run()
+    else:
+        socketio.run(app, debug=False, host='0.0.0.0')
