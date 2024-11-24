@@ -7,6 +7,11 @@ import qrcode
 import os
 from flask_socketio import SocketIO, emit
 from dotenv import load_dotenv
+import logging
+
+# Configuração de logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -20,8 +25,10 @@ if database_url:
     if database_url.startswith('postgres://'):
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    logger.info(f"Usando banco de dados PostgreSQL: {database_url.split('@')[1]}")
 else:
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///kikacampo.db'
+    logger.info("Usando banco de dados SQLite local")
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -32,7 +39,15 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 # Configuração do Socket.IO
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet', logger=True, engineio_logger=True)
+
+# Criar todas as tabelas do banco de dados
+with app.app_context():
+    try:
+        db.create_all()
+        logger.info("Tabelas do banco de dados criadas com sucesso")
+    except Exception as e:
+        logger.error(f"Erro ao criar tabelas: {str(e)}")
 
 # Models
 class User(UserMixin, db.Model):
@@ -292,6 +307,4 @@ def handle_message(data):
     }, broadcast=True)
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
     socketio.run(app, debug=False, host='0.0.0.0')
