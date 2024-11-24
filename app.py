@@ -92,25 +92,52 @@ def index():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    if request.method == 'POST':
-        name = request.form.get('name')
-        email = request.form.get('email')
-        phone = request.form.get('phone')
-        password = request.form.get('password')
+    try:
+        if request.method == 'POST':
+            name = request.form.get('name')
+            email = request.form.get('email')
+            phone = request.form.get('phone')
+            password = request.form.get('password')
+            
+            # Validação dos campos
+            if not all([name, email, phone, password]):
+                flash('Todos os campos são obrigatórios', 'error')
+                return render_template('register.html')
+            
+            # Verifica se o email já existe
+            if User.query.filter_by(email=email).first():
+                flash('Email já cadastrado', 'error')
+                return render_template('register.html')
+            
+            # Cria o novo usuário
+            try:
+                new_user = User(
+                    name=name,
+                    email=email,
+                    phone=phone,
+                    password=generate_password_hash(password, method='sha256')
+                )
+                db.session.add(new_user)
+                db.session.commit()
+                logger.info(f"Novo usuário registrado: {email}")
+                
+                # Faz login automático após o registro
+                login_user(new_user)
+                flash('Registro realizado com sucesso!', 'success')
+                return redirect(url_for('dashboard'))
+            
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Erro ao salvar usuário no banco: {str(e)}")
+                flash('Erro ao criar usuário. Por favor, tente novamente.', 'error')
+                return render_template('register.html')
         
-        if User.query.filter_by(email=email).first():
-            flash('Email já cadastrado')
-            return redirect(url_for('register'))
-        
-        hashed_password = generate_password_hash(password)
-        new_user = User(name=name, email=email, phone=phone, password=hashed_password)
-        db.session.add(new_user)
-        db.session.commit()
-        
-        flash('Cadastro realizado com sucesso!')
-        return redirect(url_for('login'))
+        return render_template('register.html')
     
-    return render_template('register.html')
+    except Exception as e:
+        logger.error(f"Erro na rota de registro: {str(e)}")
+        flash('Ocorreu um erro. Por favor, tente novamente.', 'error')
+        return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
