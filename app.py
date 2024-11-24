@@ -253,6 +253,29 @@ def messages():
     messages = Message.query.filter_by(user_id=current_user.id).all()
     return render_template('messages.html', messages=messages)
 
+@app.route('/test-db')
+def test_db():
+    try:
+        # Tenta criar as tabelas
+        with app.app_context():
+            db.create_all()
+        
+        # Tenta fazer uma consulta simples
+        test_user = User.query.first()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Conexão com o banco de dados está funcionando!',
+            'database_url': app.config['SQLALCHEMY_DATABASE_URI'].split('@')[1] if '@' in app.config['SQLALCHEMY_DATABASE_URI'] else 'sqlite',
+            'test_user': test_user.name if test_user else 'Nenhum usuário encontrado'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': 'Erro ao conectar com o banco de dados',
+            'error': str(e)
+        }), 500
+
 @socketio.on('send_message')
 def handle_message(data):
     message = Message(
