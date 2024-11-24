@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Detalhes do Cliente{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">Painel Admin</a></li>
+                    <li class="breadcrumb-item active">Detalhes do Cliente</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <!-- User Info Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="mb-0">Informações do Cliente</h3>
+                </div>
+                <div class="card-body">
+                    <h4 class="card-title">{{ user.name }}</h4>
+                    <p class="card-text">
+                        <i class="bi bi-envelope"></i> {{ user.email }}<br>
+                        <i class="bi bi-phone"></i> {{ user.phone }}
+                    </p>
+                    <hr>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Cliente desde:</small>
+                        <small class="text-muted">{{ user.created_at.strftime('%d/%m/%Y') if user.created_at else 'N/A' }}</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Stats Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="mb-0">Estatísticas</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <h4 class="mb-0">{{ bookings|length }}</h4>
+                            <small class="text-muted">Total de Reservas</small>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <h4 class="mb-0">{{ bookings|selectattr('payment_status', 'equalto', 'paid')|list|length }}</h4>
+                            <small class="text-muted">Reservas Pagas</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <!-- Bookings History -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="mb-0">Histórico de Reservas</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Horário</th>
+                                    <th>Pagamento</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for booking in bookings|sort(attribute='date', reverse=true) %}
+                                <tr>
+                                    <td>{{ booking.date.strftime('%d/%m/%Y') }}</td>
+                                    <td>{{ booking.time_slot }}</td>
+                                    <td>{{ booking.payment_method }}</td>
+                                    <td>
+                                        <span class="badge {% if booking.payment_status == 'paid' %}bg-success{% else %}bg-warning{% endif %}">
+                                            {{ booking.payment_status }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if booking.payment_status != 'paid' %}
+                                        <button class="btn btn-sm btn-success confirm-payment" 
+                                                data-booking-id="{{ booking.id }}">
+                                            <i class="bi bi-check-circle"></i>
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Message History -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Histórico de Mensagens</h3>
+                </div>
+                <div class="card-body">
+                    <div class="messages-container" style="max-height: 400px; overflow-y: auto;">
+                        {% for message in messages %}
+                        <div class="message-item mb-3 p-3 rounded {% if message.is_admin_message %}bg-light text-end{% endif %}">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge {% if message.is_admin_message %}bg-secondary{% else %}bg-primary{% endif %}">
+                                    {{ 'Admin' if message.is_admin_message else 'Cliente' }}
+                                </span>
+                                <small class="text-muted">{{ message.timestamp.strftime('%d/%m/%Y %H:%M') }}</small>
+                            </div>
+                            <p class="mb-0">{{ message.content }}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Reply Form -->
+                    <div class="reply-form mt-3">
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="Digite sua mensagem..." id="messageInput">
+                            <button class="btn btn-primary" type="button" id="sendMessage">
+                                <i class="bi bi-send"></i> Enviar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Socket.IO connection
+        const socket = io();
+        
+        // Confirm payment buttons
+        document.querySelectorAll('.confirm-payment').forEach(button => {
+            button.addEventListener('click', async function() {
+                const bookingId = this.dataset.bookingId;
+                if (confirm('Confirmar o pagamento desta reserva?')) {
+                    try {
+                        const response = await fetch('/admin/update_booking', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: `booking_id=${bookingId}&status=paid`
+                        });
+                        
+                        if (response.ok) {
+                            location.reload();
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                    }
+                }
+            });
+        });
+
+        // Send message
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendMessage');
+
+        async function sendMessage() {
+            const content = messageInput.value.trim();
+            if (content) {
+                try {
+                    const response = await fetch('/admin/reply_message', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `user_id={{ user.id }}&content=${encodeURIComponent(content)}`
+                    });
+                    
+                    if (response.ok) {
+                        messageInput.value = '';
+                        location.reload();
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            }
+        }
+
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Auto-scroll to bottom of messages
+        const messagesContainer = document.querySelector('.messages-container');
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    });
+</script>
+{% endblock %}

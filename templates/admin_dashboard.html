@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+
+{% block title %}Painel Administrativo{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <h2>Painel Administrativo</h2>
+        <p class="text-muted">Bem-vindo, {{ current_user.name }}</p>
+    </div>
+</div>
+
+<!-- Stats Overview -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h5 class="card-title">Total de Agendamentos</h5>
+                <h2 class="mb-0">{{ bookings|length }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h5 class="card-title">Pagamentos Confirmados</h5>
+                <h2 class="mb-0">{{ bookings|selectattr('payment_status', 'equalto', 'paid')|list|length }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <h5 class="card-title">Pagamentos Pendentes</h5>
+                <h2 class="mb-0">{{ bookings|selectattr('payment_status', 'equalto', 'pending')|list|length }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <h5 class="card-title">Mensagens Não Lidas</h5>
+                <h2 class="mb-0">{{ messages|selectattr('is_admin_message', 'equalto', false)|list|length }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <!-- Bookings Table -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3 class="mb-0">Agendamentos</h3>
+                <div class="btn-group">
+                    <button class="btn btn-outline-primary btn-sm" onclick="filterBookings('all')">Todos</button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="filterBookings('today')">Hoje</button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="filterBookings('pending')">Pendentes</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Horário</th>
+                                <th>Cliente</th>
+                                <th>Contato</th>
+                                <th>Pagamento</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for booking, user in bookings %}
+                            <tr class="booking-row" 
+                                data-date="{{ booking.date.strftime('%Y-%m-%d') }}"
+                                data-status="{{ booking.payment_status }}">
+                                <td>{{ booking.date.strftime('%d/%m/%Y') }}</td>
+                                <td>{{ booking.time_slot }}</td>
+                                <td>
+                                    <a href="{{ url_for('user_details', user_id=user.id) }}" 
+                                       class="text-decoration-none">
+                                        {{ user.name }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <small class="d-block">📧 {{ user.email }}</small>
+                                    <small class="d-block">📱 {{ user.phone }}</small>
+                                </td>
+                                <td>{{ booking.payment_method }}</td>
+                                <td>
+                                    <span class="badge {% if booking.payment_status == 'paid' %}bg-success{% else %}bg-warning{% endif %}">
+                                        {{ booking.payment_status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        {% if booking.payment_status != 'paid' %}
+                                        <button class="btn btn-sm btn-success confirm-payment" 
+                                                data-booking-id="{{ booking.id }}"
+                                                title="Confirmar Pagamento">
+                                            <i class="bi bi-check-circle"></i>
+                                        </button>
+                                        {% endif %}
+                                        <button class="btn btn-sm btn-info view-details"
+                                                data-booking-id="{{ booking.id }}"
+                                                title="Ver Detalhes">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <!-- Time Slots Management -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="mb-0">Gerenciar Horários</h3>
+            </div>
+            <div class="card-body">
+                <form id="time-slot-form" class="mb-3">
+                    <div class="input-group">
+                        <input type="time" class="form-control" id="new-time-slot" required>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> Adicionar
+                        </button>
+                    </div>
+                </form>
+
+                <div id="time-slots-list">
+                    {% for slot in time_slots %}
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+                        <span>{{ slot.time }}</span>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-outline-primary toggle-slot" 
+                                    data-slot-id="{{ slot.id }}"
+                                    title="{{ 'Desativar' if slot.is_available else 'Ativar' }}">
+                                <i class="bi bi-toggle-{{ 'on' if slot.is_available else 'off' }}"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger delete-slot" 
+                                    data-slot-id="{{ slot.id }}"
+                                    title="Remover">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="mb-0">Mensagens Recentes</h3>
+            </div>
+            <div class="card-body">
+                <div class="messages-list" style="max-height: 500px; overflow-y: auto;">
+                    {% for message, user in messages %}
+                    <div class="message-item mb-3 p-2 border rounded {% if not message.is_admin_message %}bg-light{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <div>
+                                <strong>{{ user.name }}</strong>
+                                {% if not message.is_admin_message %}
+                                <span class="badge bg-primary ms-1">Cliente</span>
+                                {% else %}
+                                <span class="badge bg-secondary ms-1">Admin</span>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted">{{ message.timestamp.strftime('%d/%m %H:%M') }}</small>
+                        </div>
+                        <p class="mb-2">{{ message.content }}</p>
+                        {% if not message.is_admin_message %}
+                        <div class="reply-form">
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control" 
+                                       placeholder="Responder..."
+                                       data-user-id="{{ user.id }}">
+                                <button class="btn btn-outline-primary send-reply" type="button">
+                                    <i class="bi bi-send"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Booking Details Modal -->
+<div class="modal fade" id="bookingDetailsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalhes do Agendamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Content will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Socket.IO connection
+        const socket = io();
+        
+        // Listen for new messages
+        socket.on('new_message', function(data) {
+            // Update messages list
+            const messagesList = document.querySelector('.messages-list');
+            const newMessage = createMessageElement(data);
+            messagesList.insertBefore(newMessage, messagesList.firstChild);
+        });
+
+        // Confirm payment
+        document.querySelectorAll('.confirm-payment').forEach(button => {
+            button.addEventListener('click', async function() {
+                const bookingId = this.dataset.bookingId;
+                if (confirm('Confirmar o pagamento deste agendamento?')) {
+                    try {
+                        const response = await fetch('/admin/update_booking', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: `booking_id=${bookingId}&status=paid`
+                        });
+                        
+                        if (response.ok) {
+                            location.reload();
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                    }
+                }
+            });
+        });
+
+        // Toggle time slot availability
+        document.querySelectorAll('.toggle-slot').forEach(button => {
+            button.addEventListener('click', async function() {
+                const slotId = this.dataset.slotId;
+                try {
+                    const response = await fetch('/admin/manage_slots', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `slot_id=${slotId}&action=toggle`
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const icon = this.querySelector('i');
+                        icon.className = `bi bi-toggle-${data.is_available ? 'on' : 'off'}`;
+                        this.title = data.is_available ? 'Desativar' : 'Ativar';
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+        });
+
+        // Send reply to message
+        document.querySelectorAll('.send-reply').forEach(button => {
+            button.addEventListener('click', async function() {
+                const input = this.previousElementSibling;
+                const userId = input.dataset.userId;
+                const content = input.value.trim();
+                
+                if (content) {
+                    try {
+                        const response = await fetch('/admin/reply_message', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: `user_id=${userId}&content=${encodeURIComponent(content)}`
+                        });
+                        
+                        if (response.ok) {
+                            input.value = '';
+                            location.reload();
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                    }
+                }
+            });
+        });
+
+        // Filter bookings
+        window.filterBookings = function(filter) {
+            const rows = document.querySelectorAll('.booking-row');
+            const today = new Date().toISOString().split('T')[0];
+            
+            rows.forEach(row => {
+                const date = row.dataset.date;
+                const status = row.dataset.status;
+                
+                switch(filter) {
+                    case 'today':
+                        row.style.display = date === today ? '' : 'none';
+                        break;
+                    case 'pending':
+                        row.style.display = status === 'pending' ? '' : 'none';
+                        break;
+                    default:
+                        row.style.display = '';
+                }
+            });
+        };
+
+        // Helper function to create message element
+        function createMessageElement(data) {
+            const div = document.createElement('div');
+            div.className = 'message-item mb-3 p-2 border rounded';
+            div.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <div>
+                        <strong>${data.user}</strong>
+                        <span class="badge bg-secondary ms-1">Admin</span>
+                    </div>
+                    <small class="text-muted">${data.timestamp}</small>
+                </div>
+                <p class="mb-2">${data.message}</p>
+            `;
+            return div;
+        }
+    });
+</script>
+{% endblock %}

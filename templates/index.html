@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Início{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 text-center">
+        <h1 class="display-4 mb-4">Bem-vindo ao Kika Campo</h1>
+        <p class="lead">Reserve seu horário para jogar futebol de forma fácil e rápida!</p>
+        
+        {% if not current_user.is_authenticated %}
+            <div class="mt-4">
+                <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg me-3">Cadastre-se</a>
+                <a href="{{ url_for('login') }}" class="btn btn-outline-primary btn-lg">Entrar</a>
+            </div>
+        {% else %}
+            <div class="mt-4">
+                <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg">Ver Horários Disponíveis</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h3 class="card-title">Horários Flexíveis</h3>
+                <p class="card-text">Escolha o melhor horário para você e seus amigos jogarem.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h3 class="card-title">Pagamento Fácil</h3>
+                <p class="card-text">Pague via PIX com QR Code ou em dinheiro no local.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h3 class="card-title">Suporte Online</h3>
+                <p class="card-text">Tire suas dúvidas diretamente com nossa equipe pelo chat.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
